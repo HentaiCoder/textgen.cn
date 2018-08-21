@@ -430,3 +430,4 @@ if __name__ == '__main__':
     insert('user', **u1)
     print(select_int('select count(*) from user'))
     a= {'name':'lee', 'company':'coconut'}
+    b=0
