@@ -5,12 +5,13 @@ import requests
 import re
 import time
 from bs4 import BeautifulSoup
-from WeChatCrawler.download import Download
-from WeChatCrawler.cookie_generator import Generator
+from utils.WeChatCrawler.cookie_generator import Generator
+from utils.WeChatCrawler.download import Download
 
 """
 @Author: 张琪琪&lee
-@Date: 2018-8-5
+@Date: 2018-8-21
+@Version: 1.0.1
 此爬虫用作对微信公众号文章的爬取，v1只是用作关键词搜索，请将search_type设置为True
 """
 class Crawler(Download):
