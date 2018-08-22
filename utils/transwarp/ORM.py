@@ -232,7 +232,7 @@ class ModelMetaclass(type):
         logging.info('Scan ORMapping %s...' % name)
         mappings = dict()
         primary_key = None
-        for k, v in attrs.iteritems():
+        for k, v in attrs.items():
             if isinstance(v, Field):
                 if not v.name:
                     v.name = k
@@ -265,7 +265,7 @@ class ModelMetaclass(type):
         return type.__new__(cls, name, bases, attrs)
 
 
-class Model(dict):
+class Model(dict, metaclass=ModelMetaclass):
     """
     这是一个基类，用户在子类中 定义映射关系， 因此我们需要动态扫描子类属性 ，
     从中抽取出类属性， 完成 类 <==> 表 的映射， 这里使用 metaclass 来实现。
@@ -278,7 +278,7 @@ class Model(dict):
         Model 从字典继承而来，并且通过"__getattr__","__setattr__"将Model重写，
         使得其像javascript中的 object对象那样，可以通过属性访问 值比如 a.key = value
     """
-    __metaclass__ = ModelMetaclass
+    # __metaclass__ = ModelMetaclass
 
     def __init__(self, **kw):
         super(Model, self).__init__(**kw)
@@ -362,7 +362,7 @@ class Model(dict):
         self.pre_update and self.pre_update()
         L = []
         args = []
-        for k, v in self.__mappings__.iteritems():
+        for k, v in self.__mappings__.items():
             if v.updatable:
                 if hasattr(self, k):
                     arg = getattr(self, k)
@@ -395,7 +395,7 @@ class Model(dict):
         """
         self.pre_insert and self.pre_insert()
         params = {}
-        for k, v in self.__mappings__.iteritems():
+        for k, v in self.__mappings__.items():
             if v.insertable:
                 if not hasattr(self, k):
                     setattr(self, k, v.default)
@@ -422,12 +422,12 @@ if __name__ == '__main__':
     u.passwd
     u.last_modified > (time.time() - 2)
     f = User.get(10190)
-    f.name
-    f.email
+    print(f.name)
+    print(f.email)
     f.email = 'changed@DAO.org'
     r = f.update() # change email but email is non-updatable!#
-    len(User.find_all())
+    print(len(User.find_all()))
     g = User.get(10190)
-    g.email
+    print(g.email)
     r = g.delete()
-    len(DAO.select('select * from user where id=10190'))
+    print(len(DAO.select('select * from user where id=10190')))
