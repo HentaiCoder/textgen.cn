@@ -11,6 +11,12 @@
 .idea/**/dictionaries
 .idea/**/shelf
 
+# training corpus
+textgen/cuttext/*.*
+textgen/*.model
+textgen/*.kv
+textgen/*.npy
+
 # Sensitive or high-churn files
 .idea/**/dataSources/
 .idea/**/dataSources.ids

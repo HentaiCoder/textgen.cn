@@ -5,17 +5,16 @@ import requests
 import re
 import time
 from bs4 import BeautifulSoup
-from utils.WeChatCrawler.cookie_generator import Generator
 from utils.WeChatCrawler.download import Download
+from utils.WeChatCrawler.cookie_generator import Generator
 
 """
 @Author: 张琪琪&lee
-@Date: 2018-8-21
-@Version: 1.0.1
+@Date: 2018-8-5
 此爬虫用作对微信公众号文章的爬取，v1只是用作关键词搜索，请将search_type设置为True
 """
-class Crawler(Download):
-    def __init__(self, keyword, hostname, username, password, schema, tablename, search_type=True):
+class WeChatCrawler(Download):
+    def __init__(self, keyword, hostname,port, username, password, schema, tablename, search_type=True):
         """
         initializing the WeChat crawler(mainly setup the local db), input some key params and generate the cookies
         :param keyword: the searching words
@@ -25,7 +24,7 @@ class Crawler(Download):
         self.query = keyword
         self.search_type = search_type
         self.headers = {'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.99 Safari/537.36'}
-        self.db = pymysql.connect(str(hostname),str(username),str(password), str(schema))
+        self.db = pymysql.connect(str(hostname),str(username),str(password), str(schema),port=port)
         self.tablename=tablename
         account = input("pls enter ur wechat account: ")
         pwd = input("pls enter ur wechat password: ")
@@ -127,7 +126,7 @@ class Crawler(Download):
                             sql = """
                                     INSERT INTO {}(article_type, article_title, wechat_author, wechat_nickname, fetch_date, url, Content)
                                     VALUES('{}','{}','{}','{}',now(), '{}','{}')
-                            """.format(self.tablename, article['article_type'], article['title'], article['author'], article['nickname'], article['url'], self.tablename)
+                            """.format(self.tablename, article['article_type'], article['title'], article['author'], article['nickname'], article['url'], content)
                             try:
                                 cursor.execute(sql)
                                 self.db.commit()
@@ -183,3 +182,6 @@ class Crawler(Download):
             self.db.rollback()
             return False
         #  TF-IDF method
+
+crawler = WeChatCrawler(keyword="互联网金融",hostname="140.143.116.206", port=10015 , username="root", password="text1023", schema="corpus", tablename="crawler_data", search_type=True)
+crawler.crawling(max_article=20000)

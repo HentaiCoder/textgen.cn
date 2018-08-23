@@ -135,6 +135,17 @@ class StringField(Field):
             kw['ddl'] = 'varchar(255)'
         super(StringField, self).__init__(**kw)
 
+class LongStringField(Field):
+    """
+    保存长字符串类型
+    """
+    def __init__(self, **kw):
+        if 'default' not in kw:
+            kw['default'] = ''
+        if 'ddl' not in kw:
+            kw['ddl'] = 'TEXT'
+        super(LongStringField, self).__init__(**kw)
+
 
 class IntegerField(Field):
     """
@@ -405,7 +416,7 @@ class Model(dict, metaclass=ModelMetaclass):
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
-    DAO.create_engine('root', '19940621', 'crashcourse', 'localhost')
+    DAO.create_engine(user='root', password='text1023', database='corpus', host='140.143.116.206', port=10015)
     DAO.update('drop table if exists user')
     DAO.update('create table user (id int primary key, name text, email text, passwd text, last_modified real)')
     class User(Model):
