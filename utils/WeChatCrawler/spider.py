@@ -16,7 +16,7 @@ from utils.WeChatCrawler.cookie_generator import Generator
 @Date: 2018-8-5
 此爬虫用作对微信公众号文章的爬取，v1只是用作关键词搜索，请将search_type设置为True
 """
-class WeChatCrawler(Download, threading.Thread):
+class WeChatCrawler(Download):
     def __init__(self, keyword, hostname,port, username, password, schema, tablename, search_type=True):
         """
         initializing the WeChat crawler(mainly setup the local db), input some key params and generate the cookies
@@ -24,7 +24,7 @@ class WeChatCrawler(Download, threading.Thread):
         :param search_type: the searching method: by_type: True or by_author: False
         """
         Download.__init__(self)
-        threading.Thread.__init__(self)
+
         self.query = keyword
         self.search_type = search_type
         self.headers = {'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.99 Safari/537.36'}
@@ -79,15 +79,8 @@ class WeChatCrawler(Download, threading.Thread):
                 'begin': '0',
                 'count': '20',
             }
-            while True:
-                try:
-                    response = self.request(search_url=search_url, cookies=cookies, data=data, headers=headers, proxy=None, num_retries=6)
-                    max_num = response.json().get('total')
-                except Exception as e:
-                    print("Bad Response, try to regain the data after 2s...")
-                    time.sleep(2)
-                if max_num is not None:
-                    break
+            response = self.request(search_url=search_url, cookies=cookies, data=data, headers=headers, proxy=None, num_retries=6)
+            max_num = response.json().get('total')
 
             if max_num > max_article:
                 print("the total number of articles({}) exceeds the limit, crawler will fetching {} articles only, "
@@ -220,6 +213,10 @@ def _taskAssign(tasklist, hostname,port, username, password, schema, tablename, 
         thread.join()
 
 def spiderScheduler(hostname,port, username, password, schema, tablename, search_type=True, workers=3, thread_num=4):
+    account = input("pls enter ur wechat account: ")
+    pwd = input("pls enter ur wechat password: ")
+    generator = Generator(account=account, password=pwd)
+    generator.generate()
     spiderlistpath = 'spider_list.txt'
     spiderlist = open(spiderlistpath, 'r', encoding='utf-8').readlines()
     spiderlist = [w.strip() for w in spiderlist]
