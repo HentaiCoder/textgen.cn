@@ -4,6 +4,9 @@ import random
 import requests
 import re
 import time
+import threading
+import multiprocessing
+import os
 from bs4 import BeautifulSoup
 from utils.WeChatCrawler.download import Download
 from utils.WeChatCrawler.cookie_generator import Generator
@@ -13,7 +16,7 @@ from utils.WeChatCrawler.cookie_generator import Generator
 @Date: 2018-8-5
 此爬虫用作对微信公众号文章的爬取，v1只是用作关键词搜索，请将search_type设置为True
 """
-class WeChatCrawler(Download):
+class WeChatCrawler(Download, threading.Thread):
     def __init__(self, keyword, hostname,port, username, password, schema, tablename, search_type=True):
         """
         initializing the WeChat crawler(mainly setup the local db), input some key params and generate the cookies
@@ -21,15 +24,17 @@ class WeChatCrawler(Download):
         :param search_type: the searching method: by_type: True or by_author: False
         """
         Download.__init__(self)
+        threading.Thread.__init__(self)
         self.query = keyword
         self.search_type = search_type
         self.headers = {'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.99 Safari/537.36'}
         self.db = pymysql.connect(str(hostname),str(username),str(password), str(schema),port=port)
         self.tablename=tablename
-        account = input("pls enter ur wechat account: ")
-        pwd = input("pls enter ur wechat password: ")
-        generator = Generator(account=account, password=pwd)
-        generator.generate()
+        if not os.path.exists('cookies.txt'):
+            account = input("pls enter ur wechat account: ")
+            pwd = input("pls enter ur wechat password: ")
+            generator = Generator(account=account, password=pwd)
+            generator.generate()
         cursor = self.db.cursor()
         sql = """CREATE TABLE IF NOT EXISTS {} (
                         id INT NOT NULL AUTO_INCREMENT,
@@ -74,8 +79,16 @@ class WeChatCrawler(Download):
                 'begin': '0',
                 'count': '20',
             }
-            response = self.request(search_url=search_url, cookies=cookies, data=data, headers=headers, proxy=None, num_retries=6)
-            max_num = response.json().get('total')
+            while True:
+                try:
+                    response = self.request(search_url=search_url, cookies=cookies, data=data, headers=headers, proxy=None, num_retries=6)
+                    max_num = response.json().get('total')
+                except Exception as e:
+                    print("Bad Response, try to regain the data after 2s...")
+                    time.sleep(2)
+                if max_num is not None:
+                    break
+
             if max_num > max_article:
                 print("the total number of articles({}) exceeds the limit, crawler will fetching {} articles only, "
                       "if u wanna fetch more articles, pls turns up the limit".format(max_num, max_article))
@@ -119,18 +132,22 @@ class WeChatCrawler(Download):
                                 self.db.rollback()
                                 continue
                             print(index)
-                            print("Title: "+article.get("title"))
+                            rstr = r"[\/\\\:\*\?\"\<\>\|]"  # '/ \ : * ? " < > |'
+                            title = re.sub(rstr, "_", article['title'])
+                            print("Title: "+title)
                             print("Author: "+article.get("author"))
                             content = self.analyzer(article['content'])
-                            #print(content)
+
                             sql = """
                                     INSERT INTO {}(article_type, article_title, wechat_author, wechat_nickname, fetch_date, url, Content)
                                     VALUES('{}','{}','{}','{}',now(), '{}','{}')
-                            """.format(self.tablename, article['article_type'], article['title'], article['author'], article['nickname'], article['url'], content)
+                            """.format(self.tablename, article['article_type'], title, article['author'], article['nickname'], str(article['url']), content)
                             try:
                                 cursor.execute(sql)
                                 self.db.commit()
-                                print("INSERTION SUCCESS!")
+                                print("INSERTION SUCCESS! " +
+                                      "Thread info: "+threading.currentThread().name+", "+str(threading.currentThread().ident)+
+                                      ". Process info:" + multiprocessing.current_process().name+", "+str(multiprocessing.current_process().ident))
                             except pymysql.Error as e:
                                 print(repr(e))
                                 print("Error occurred in INSERT operation!")
@@ -181,7 +198,46 @@ class WeChatCrawler(Download):
             print("error occurred in ELIMINATION operation! ")
             self.db.rollback()
             return False
-        #  TF-IDF method
 
-crawler = WeChatCrawler(keyword="互联网金融",hostname="140.143.116.206", port=10015 , username="root", password="text1023", schema="corpus", tablename="crawler_data", search_type=True)
-crawler.crawling(max_article=20000)
+
+def _spidertask(tasks, hostname,port, username, password, schema, tablename, search_type=True):
+    spider = WeChatCrawler(keyword=None, hostname=hostname, port=int(port), username=username, password=password, schema=schema, tablename=tablename, search_type=search_type)
+    for task in tasks:
+        spider.query=task
+        spider.crawling(max_article=35000)
+
+def _taskAssign(tasklist, hostname,port, username, password, schema, tablename, search_type=True, thread_num=4):
+    div_length = int(len(tasklist) / thread_num + 0.5)
+    div_length = div_length if div_length>=1 else 1
+    threads = []
+    for i in range(0, len(tasklist), div_length):
+        tasks = tasklist[i:i+div_length]
+        thread = threading.Thread(target=_spidertask, args=(tasks, hostname, port, username, password, schema, tablename, search_type))
+        threads.append(thread)
+        thread.setDaemon(True)
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+def spiderScheduler(hostname,port, username, password, schema, tablename, search_type=True, workers=3, thread_num=4):
+    spiderlistpath = 'spider_list.txt'
+    spiderlist = open(spiderlistpath, 'r', encoding='utf-8').readlines()
+    spiderlist = [w.strip() for w in spiderlist]
+    spidertasks = []
+    for item in spiderlist:
+         if item not in spidertasks:
+             spidertasks.append(item)
+    div_length = int(len(spidertasks)/workers+0.5)
+    processlist = []
+    for i in range(0, len(spidertasks), div_length):
+        tasklist = spidertasks[i:i+div_length]
+        process = multiprocessing.Process(target=_taskAssign, args=(tasklist, hostname, port, username, password, schema, tablename, search_type, thread_num))
+        processlist.append(process)
+        process.start()
+    for process in processlist:
+        process.join()
+
+
+if __name__=='__main__':
+    crawler = WeChatCrawler(keyword="互联网金融",hostname="140.143.116.206", port=10015 , username="root", password="text1023", schema="corpus", tablename="crawler_data", search_type=True)
+    crawler.crawling(max_article=30000)

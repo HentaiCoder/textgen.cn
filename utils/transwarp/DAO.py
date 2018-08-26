@@ -172,7 +172,7 @@ def _select(sql, first, *args):
             if not values:
                 return None
             return Dict(names, values)
-        return [Dict(names, x) for x in cursor.fetchall()]
+        return (Dict(names, x) for x in cursor.fetchall())
     finally:
         if cursor:
             cursor.close()

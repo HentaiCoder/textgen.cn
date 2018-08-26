@@ -334,7 +334,7 @@ class Model(dict, metaclass=ModelMetaclass):
         查询所有字段， 将结果以一个列表返回
         """
         L = DAO.select('select * from `%s`' % cls.__table__)
-        return [cls(**d) for d in L]
+        return (cls(**d) for d in L)
 
     @classmethod
     def find_by(cls, where, *args):
